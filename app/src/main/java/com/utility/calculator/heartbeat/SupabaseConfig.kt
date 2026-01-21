@@ -36,8 +36,8 @@ object SupabaseConfig {
     // ⚠️ BU DEĞERLERİ KENDİ SUPABASE PROJENİZDEN ALIN
     // Supabase Dashboard → Settings → API
 
-    const val SUPABASE_URL = "https://YOUR_PROJECT_ID.supabase.co"
-    const val SUPABASE_ANON_KEY = "YOUR_ANON_KEY_HERE"
+    const val SUPABASE_URL = "https://ztfufhecfcriyryaulmv.supabase.co"
+    const val SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp0ZnVmaGVjZmNyaXlyeWF1bG12Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkwMTQ2MzEsImV4cCI6MjA4NDU5MDYzMX0.5s9sMTF8bzyvGXVIZI3U2R24gXEC0WTojoN7g2yoOL0"
 
     // Heartbeat tablosu adı
     const val TABLE_NAME = "heartbeats"
