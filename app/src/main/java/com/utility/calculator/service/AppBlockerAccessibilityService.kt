@@ -5,24 +5,27 @@ import android.accessibilityservice.AccessibilityServiceInfo
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import android.widget.Toast
 import com.utility.calculator.blocker.AppBlockList
 import com.utility.calculator.blocker.BlockList
 
 /**
- * Accessibility Service - Uygulama ve tarayıcı izleme
+ * Gelişmiş Accessibility Service
  *
- * Özellikler:
- * - Kumar uygulamalarını tespit ve engelleme
- * - Tarayıcılardaki URL izleme
- * - Şüpheli içerik tespiti
+ * 1. Kumar uygulamalarını engeller
+ * 2. Tarayıcıdaki URL'leri kontrol eder
+ * 3. SAYFA İÇERİĞİNİ ANALİZ EDER - Kumar içeriği tespit edilirse engeller
  */
 class AppBlockerAccessibilityService : AccessibilityService() {
 
     companion object {
         private const val TAG = "AppBlocker"
+        private const val CONTENT_CHECK_DELAY = 2000L // Sayfa yüklenmesi için 2 saniye bekle
 
         // İzlenecek tarayıcı paketleri
         private val BROWSER_PACKAGES = setOf(
@@ -42,10 +45,43 @@ class AppBlockerAccessibilityService : AccessibilityService() {
             "com.yandex.browser",
             "com.duckduckgo.mobile.android"
         )
+
+        // Kumar içeriği tespit kelimeleri (sayfa içinde aranacak)
+        private val GAMBLING_CONTENT_KEYWORDS = setOf(
+            // Türkçe
+            "bahis yap", "bahis oyna", "canlı bahis", "spor bahisleri",
+            "casino oyunları", "canlı casino", "slot oyunları", "rulet oyna",
+            "poker oyna", "blackjack oyna", "yatırım bonusu", "hoşgeldin bonusu",
+            "deneme bonusu", "çevrim şartı", "kayıp bonusu", "freespin",
+            "jackpot", "şans oyunları", "kumar", "iddaa kupon",
+            "canlı maç izle bahis", "bahis oranları", "kupon yap",
+            "para yatır", "para çek", "minimum yatırım", "maksimum kazanç",
+
+            // İngilizce
+            "place your bet", "betting odds", "live betting", "sports betting",
+            "casino games", "live casino", "slot machines", "play roulette",
+            "play poker", "play blackjack", "welcome bonus", "deposit bonus",
+            "free spins", "wagering requirements", "cashback bonus",
+            "gambling", "place bet", "bet now", "join now bonus",
+            "win big", "jackpot winner", "lucky spin"
+        )
+
+        // Kesin kumar göstergeleri (bunlardan 1 tanesi bile varsa kumar sitesi)
+        private val DEFINITE_GAMBLING_INDICATORS = setOf(
+            "bahis kuponu", "kupon yap", "iddaa kuponu",
+            "canlı bahis yap", "bahis oranları",
+            "casino kayıt", "slot oyna", "rulet oyna",
+            "hoşgeldin bonusu al", "deneme bonusu al",
+            "bet now", "place your bet", "betting slip",
+            "deposit and play", "gambling license"
+        )
     }
 
     private var lastBlockedApp = ""
     private var lastBlockTime = 0L
+    private var lastCheckedUrl = ""
+    private val handler = Handler(Looper.getMainLooper())
+    private var contentCheckRunnable: Runnable? = null
 
     override fun onServiceConnected() {
         val info = AccessibilityServiceInfo().apply {
@@ -57,7 +93,7 @@ class AppBlockerAccessibilityService : AccessibilityService() {
             notificationTimeout = 100
         }
         serviceInfo = info
-        Log.i(TAG, "Accessibility Service bağlandı")
+        Log.i(TAG, "Accessibility Service bağlandı - İçerik analizi aktif")
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -72,7 +108,8 @@ class AppBlockerAccessibilityService : AccessibilityService() {
             }
             AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED -> {
                 if (packageName in BROWSER_PACKAGES) {
-                    checkBrowserContent(event)
+                    // Sayfa içeriği değişti, analiz planla
+                    scheduleContentAnalysis(packageName)
                 }
             }
         }
@@ -94,42 +131,72 @@ class AppBlockerAccessibilityService : AccessibilityService() {
             return
         }
 
-        // Tarayıcıda URL kontrolü
+        // Tarayıcıda URL ve içerik kontrolü
         if (packageName in BROWSER_PACKAGES) {
-            checkBrowserContent(event)
+            checkBrowserUrlAndContent()
         }
     }
 
     /**
-     * Tarayıcı içeriğini kontrol et - URL bar'daki adresi oku
+     * İçerik analizini planla (debounce)
      */
-    private fun checkBrowserContent(event: AccessibilityEvent) {
+    private fun scheduleContentAnalysis(packageName: String) {
+        contentCheckRunnable?.let { handler.removeCallbacks(it) }
+
+        contentCheckRunnable = Runnable {
+            if (packageName in BROWSER_PACKAGES) {
+                checkBrowserUrlAndContent()
+            }
+        }
+
+        handler.postDelayed(contentCheckRunnable!!, CONTENT_CHECK_DELAY)
+    }
+
+    /**
+     * Tarayıcı URL ve içerik kontrolü
+     */
+    private fun checkBrowserUrlAndContent() {
         val rootNode = rootInActiveWindow ?: return
 
         try {
-            // URL bar'ı bul
-            val urlNode = findUrlBar(rootNode)
-            urlNode?.let { node ->
-                val url = node.text?.toString() ?: return@let
+            // 1. URL kontrolü
+            val url = findUrlInBrowser(rootNode)
+            if (url != null && url != lastCheckedUrl) {
+                lastCheckedUrl = url
 
                 if (BlockList.shouldBlock(url)) {
-                    Log.i(TAG, "Tarayıcıda engellenen URL: $url")
-                    goHome()
-                    incrementBlockedCount()
+                    Log.i(TAG, "URL ENGELLENDİ: $url")
+                    blockAndGoHome("Kumar sitesi URL'si")
+                    return
+                }
+            }
+
+            // 2. SAYFA İÇERİĞİ ANALİZİ
+            val pageContent = extractPageContent(rootNode)
+            if (pageContent.isNotEmpty()) {
+                val gamblingScore = analyzeContentForGambling(pageContent)
+
+                if (gamblingScore >= 100) {
+                    Log.i(TAG, "İÇERİK ANALİZİ - KUMAR TESPİT EDİLDİ (skor: $gamblingScore)")
+                    Log.i(TAG, "URL: $url")
+                    blockAndGoHome("Kumar içeriği tespit edildi")
+                    return
+                } else if (gamblingScore >= 50) {
+                    Log.w(TAG, "İÇERİK ANALİZİ - ŞÜPHELİ (skor: $gamblingScore) - $url")
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Tarayıcı kontrolü hatası", e)
+            Log.e(TAG, "İçerik analizi hatası: ${e.message}")
         } finally {
             rootNode.recycle()
         }
     }
 
     /**
-     * URL bar'ı bul (farklı tarayıcılar için)
+     * Tarayıcıdan URL'yi bul
      */
-    private fun findUrlBar(root: AccessibilityNodeInfo): AccessibilityNodeInfo? {
-        // Yaygın URL bar ID'leri
+    private fun findUrlInBrowser(root: AccessibilityNodeInfo): String? {
+        // URL bar ID'leri
         val urlBarIds = listOf(
             "com.android.chrome:id/url_bar",
             "com.android.chrome:id/search_box_text",
@@ -137,54 +204,146 @@ class AppBlockerAccessibilityService : AccessibilityService() {
             "org.mozilla.firefox:id/mozac_browser_toolbar_url_view",
             "com.opera.browser:id/url_field",
             "com.brave.browser:id/url_bar",
-            "com.sec.android.app.sbrowser:id/location_bar_edit_text"
+            "com.sec.android.app.sbrowser:id/location_bar_edit_text",
+            "com.mi.globalbrowser:id/url_bar"
         )
 
         for (id in urlBarIds) {
             val nodes = root.findAccessibilityNodeInfosByViewId(id)
             if (nodes.isNotEmpty()) {
-                return nodes[0]
+                val text = nodes[0].text?.toString()
+                nodes.forEach { it.recycle() }
+                if (!text.isNullOrEmpty()) return text
             }
-        }
-
-        // Fallback: EditText ara
-        return findEditText(root)
-    }
-
-    private fun findEditText(node: AccessibilityNodeInfo): AccessibilityNodeInfo? {
-        if (node.className == "android.widget.EditText" && node.isVisibleToUser) {
-            return node
-        }
-
-        for (i in 0 until node.childCount) {
-            val child = node.getChild(i) ?: continue
-            val result = findEditText(child)
-            if (result != null) return result
-            child.recycle()
         }
 
         return null
     }
 
     /**
-     * Uygulamayı engelle ve ana ekrana dön
+     * Sayfadaki tüm metin içeriğini çıkar
+     */
+    private fun extractPageContent(node: AccessibilityNodeInfo, depth: Int = 0): String {
+        if (depth > 15) return "" // Çok derin aramayı önle
+
+        val content = StringBuilder()
+
+        // Bu node'un metnini al
+        node.text?.let { text ->
+            if (text.length in 3..500) { // Çok kısa veya çok uzun metinleri atla
+                content.append(text).append(" ")
+            }
+        }
+
+        node.contentDescription?.let { desc ->
+            if (desc.length in 3..200) {
+                content.append(desc).append(" ")
+            }
+        }
+
+        // Alt node'ları tara
+        for (i in 0 until node.childCount) {
+            try {
+                val child = node.getChild(i) ?: continue
+                content.append(extractPageContent(child, depth + 1))
+                child.recycle()
+            } catch (e: Exception) {
+                // Ignore
+            }
+        }
+
+        return content.toString()
+    }
+
+    /**
+     * İçeriği kumar açısından analiz et
+     * Skor: 0-100+ (100 ve üzeri = kesin kumar)
+     */
+    private fun analyzeContentForGambling(content: String): Int {
+        val lowerContent = content.lowercase()
+        var score = 0
+
+        // 1. Kesin göstergeler (tek başına yeterli)
+        for (indicator in DEFINITE_GAMBLING_INDICATORS) {
+            if (lowerContent.contains(indicator)) {
+                Log.d(TAG, "Kesin kumar göstergesi: $indicator")
+                return 100 // Kesin kumar
+            }
+        }
+
+        // 2. Kumar anahtar kelimeleri sayısı
+        var keywordCount = 0
+        for (keyword in GAMBLING_CONTENT_KEYWORDS) {
+            if (lowerContent.contains(keyword)) {
+                keywordCount++
+                score += 15
+            }
+        }
+
+        // 3. Bonus: Çok fazla kumar kelimesi varsa
+        if (keywordCount >= 5) {
+            score += 30
+        }
+
+        // 4. Para/ödeme kelimeleri + kumar kombinasyonu
+        val moneyKeywords = listOf("yatır", "çek", "bonus", "kazan", "ödül", "deposit", "withdraw", "win")
+        val hasMoneyKeywords = moneyKeywords.any { lowerContent.contains(it) }
+
+        if (hasMoneyKeywords && keywordCount >= 2) {
+            score += 25
+        }
+
+        // 5. Sayısal oranlar (1.5, 2.3 gibi bahis oranları)
+        val oddsPattern = Regex("\\b\\d+[.,]\\d{1,2}\\b")
+        val oddsCount = oddsPattern.findAll(lowerContent).count()
+        if (oddsCount >= 5) {
+            score += 20 // Çok fazla oran var, muhtemelen bahis sitesi
+        }
+
+        return score
+    }
+
+    /**
+     * Engelle ve ana ekrana dön
+     */
+    private fun blockAndGoHome(reason: String) {
+        val now = System.currentTimeMillis()
+        if (now - lastBlockTime < 3000) return // 3 saniye spam koruması
+
+        lastBlockTime = now
+
+        Log.i(TAG, "🚫 SAYFA ENGELLENDİ: $reason")
+
+        // Ana ekrana dön
+        goHome()
+
+        // Kullanıcıyı bilgilendir
+        handler.post {
+            Toast.makeText(
+                this,
+                "Kumar sitesi engellendi",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+
+        incrementBlockedCount()
+        saveBlockLog(lastCheckedUrl, reason)
+    }
+
+    /**
+     * Uygulamayı engelle
      */
     private fun blockApp(packageName: String, reason: String) {
-        // Çok sık engelleme spam'ini önle
         val now = System.currentTimeMillis()
-        if (packageName == lastBlockedApp && now - lastBlockTime < 2000) {
-            return
-        }
+        if (packageName == lastBlockedApp && now - lastBlockTime < 2000) return
 
         lastBlockedApp = packageName
         lastBlockTime = now
 
-        Log.i(TAG, "ENGELLENEN: $packageName - $reason")
+        Log.i(TAG, "🚫 UYGULAMA ENGELLENDİ: $packageName - $reason")
 
         goHome()
         incrementBlockedCount()
-
-        // Log kaydet
         saveBlockLog(packageName, reason)
     }
 
@@ -204,25 +363,46 @@ class AppBlockerAccessibilityService : AccessibilityService() {
     }
 
     private fun isProtectionEnabled(): Boolean {
-        val prefs = getSharedPreferences("calc_prefs", Context.MODE_PRIVATE)
-        return prefs.getBoolean("protection_enabled", false)
+        return try {
+            val prefs = getSharedPreferences("calc_prefs", Context.MODE_PRIVATE)
+            prefs.getBoolean("protection_enabled", false)
+        } catch (e: Exception) {
+            false
+        }
     }
 
     private fun incrementBlockedCount() {
-        val prefs = getSharedPreferences("calc_prefs", Context.MODE_PRIVATE)
-        val current = prefs.getInt("blocked_count", 0)
-        prefs.edit().putInt("blocked_count", current + 1).apply()
+        try {
+            val prefs = getSharedPreferences("calc_prefs", Context.MODE_PRIVATE)
+            val current = prefs.getInt("blocked_count", 0)
+            prefs.edit().putInt("blocked_count", current + 1).apply()
+        } catch (e: Exception) {
+            // Ignore
+        }
     }
 
-    private fun saveBlockLog(packageName: String, reason: String) {
-        val prefs = getSharedPreferences("calc_prefs", Context.MODE_PRIVATE)
-        val logs = prefs.getString("block_logs", "") ?: ""
-        val timestamp = System.currentTimeMillis()
-        val newLog = "$timestamp|$packageName|$reason\n"
-        prefs.edit().putString("block_logs", logs + newLog).apply()
+    private fun saveBlockLog(target: String, reason: String) {
+        try {
+            val prefs = getSharedPreferences("calc_prefs", Context.MODE_PRIVATE)
+            val logs = prefs.getString("block_logs", "") ?: ""
+            val timestamp = System.currentTimeMillis()
+            val newLog = "$timestamp|$target|$reason\n"
+
+            // Son 50 logu tut
+            val logLines = (logs + newLog).lines().takeLast(50).joinToString("\n")
+            prefs.edit().putString("block_logs", logLines).apply()
+        } catch (e: Exception) {
+            // Ignore
+        }
     }
 
     override fun onInterrupt() {
         Log.i(TAG, "Service interrupted")
+        contentCheckRunnable?.let { handler.removeCallbacks(it) }
+    }
+
+    override fun onDestroy() {
+        contentCheckRunnable?.let { handler.removeCallbacks(it) }
+        super.onDestroy()
     }
 }
