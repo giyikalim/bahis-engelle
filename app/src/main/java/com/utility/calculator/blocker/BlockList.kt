@@ -1,8 +1,8 @@
 package com.utility.calculator.blocker
 
 /**
- * Gelişmiş Engelleme Sistemi
- * - 500+ kelime
+ * Gelişmiş Engelleme Sistemi v2.0
+ * - 800+ kelime
  * - 200+ domain
  * - Leet speak algılama
  * - Regex pattern'ları
@@ -12,9 +12,10 @@ object BlockList {
 
     // ==================== TÜRKÇE KELİMELER ====================
     private val TURKISH_KEYWORDS = setOf(
-        // Temel
+        // Temel kumar kelimeleri
         "bahis", "kumar", "kumarhane", "gazino", "tombala", "piyango",
-        "iddaa", "iddia", "bahisci", "kumarci", "bahissever",
+        "iddaa", "iddia", "bahisci", "kumarci", "bahissever", "kumarbaz",
+        "ganyan", "yarış", "at yarisi", "altili", "banko", "tuttur",
 
         // Birleşik kelimeler
         "canlibahis", "canlikumar", "canlicasino", "canliiddaa",
@@ -23,67 +24,142 @@ object BlockList {
         "bahisbonus", "hosgeldinbonus", "yatirimbonus", "kayipbonus",
         "freespin", "bedavabahis", "bedavacasino", "bonusveren",
         "cevrimsiz", "cevrimsart", "yatirimsiz", "kayipsiz",
+        "bahisforum", "bahishaber", "kumarforum", "kumarhaber",
 
-        // Oyun türleri
-        "slot", "slotoyun", "slotmakine", "jackpot", "megajackpot",
-        "rulet", "blackjack", "bakara", "baccarat", "poker",
-        "holdem", "texasholdem", "omaha", "videopoker",
-        "sicbo", "craps", "keno", "bingo", "tombala",
+        // Casino oyunları
+        "slot", "slotoyun", "slotmakine", "slotlar",
+        "jackpot", "megajackpot", "progressive",
+        "rulet", "rulette", "amerikanrulet", "avruparulet",
+        "blackjack", "blekjek", "yirmibir", "21oyunu",
+        "bakara", "baccarat", "punto", "banco",
+        "poker", "pokeroyunu", "texasholdem", "omaha", "videopoker",
+        "sicbo", "craps", "zar", "zaroyunu", "barbut",
+        "keno", "bingo", "tombala", "kazıkazan", "scratch",
 
-        // Spor bahisleri
-        "macbahis", "futbolbahis", "basketbahis", "tenisbahis",
-        "voleybolbahis", "canlimaç", "canliskor", "iddaaprogram",
-        "bahisoranlar", "canlioran", "macoran", "superoran",
+        // Slot terimleri
+        "joker", "wild", "scatter", "bonus", "spin", "megaways",
+        "payline", "odemeçizgisi", "multiplier", "carpan",
+        "freegame", "bedavaoyun", "respins", "sticky",
+        "expanding", "cascading", "tumbling",
+
+        // Bahis terimleri
+        "oran", "oranlar", "bahisoran", "canlioran", "macoran",
+        "kupon", "kuponyap", "bahiskupon", "iddaakupon", "sistemkupon",
+        "tek mac", "kombine", "sistem", "handikap", "handikapli",
+        "altust", "altustu", "karsilikligol", "ilkyari", "macsonu",
+        "skor", "skortahmin", "dogruskor", "ciftesans",
+
+        // Site kalıpları
+        "giris", "guncelgiris", "yenigiris", "mobilgiris",
+        "canlidestek", "canlilink", "guvenilir", "lisansli",
+        "curacao", "malta", "gibraltar",
+
+        // Para/Ödeme
+        "yatir", "yatirim", "cekim", "cekimyap", "paracekim",
+        "havale", "papara", "paykasa", "astropay", "ecopayz",
+        "kripto", "bitcoin", "btc", "usdt", "tether",
+        "bakiye", "bonus", "promosyon", "kampanya",
 
         // Eylemler
         "bahisyap", "bahisoyna", "kumaroyna", "parakazan",
         "kazangaranti", "kesinkazan", "risksiz", "garantili",
+        "kayitol", "uyeol", "hemengiris", "simdioyna",
 
         // Argo/Slang
         "bahisco", "kumarco", "casinoco", "betci", "slotcu",
-        "bahiskar", "kumarkar"
+        "bahiskar", "kumarkar", "kazanpara", "kolaykazanc"
     )
 
     // ==================== İNGİLİZCE KELİMELER ====================
     private val ENGLISH_KEYWORDS = setOf(
-        // Core - TEK KELİMELER (önemli!)
-        "bet", "gamble", "gambling", "betting", "wager", "wagering",
-        "casino", "poker", "blackjack", "roulette", "baccarat",
-        "slots", "slot", "jackpot", "megaways", "freespins",
+        // Core gambling words
+        "bet", "bets", "betting", "bettor",
+        "gamble", "gambling", "gambler",
+        "wager", "wagering",
+        "casino", "casinos",
+        "poker", "holdem", "omaha",
+        "blackjack", "twentyone",
+        "roulette", "baccarat",
+        "slots", "slot", "slotmachine",
+        "jackpot", "jackpots", "megajackpot",
+        "lottery", "lotto",
+
+        // Slot terms
+        "joker", "jokers", "wild", "wilds",
+        "scatter", "scatters", "bonus", "bonuses",
+        "spin", "spins", "freespin", "freespins",
+        "megaways", "payline", "paylines",
+        "multiplier", "multipliers",
+        "reels", "symbols", "expanding", "sticky",
+        "cascading", "tumbling", "respins",
+        "progressive", "volatility",
 
         // Betting types
         "sportsbet", "sportbet", "sportsbetting", "livebetting",
         "livebet", "inplay", "inplaybet", "prematch",
         "accumulator", "parlay", "multibet", "combobet",
+        "handicap", "overunder", "moneyline", "spread",
+        "odds", "payout", "stake",
 
         // Casino games
         "livecasino", "livegames", "liveroulette", "liveblackjack",
+        "livepoker", "livedealer", "dealergame",
         "videoslots", "classicslots", "fruitslots", "vegasslots",
         "scratchcard", "instantwin", "virtualsports",
+        "craps", "sicbo", "keno", "bingo",
+        "pontoon", "caribbeanstud", "letitride",
+
+        // Card game terms
+        "deck", "cards", "dealer", "croupier",
+        "shuffle", "deal", "fold", "raise", "allin",
+        "flush", "straight", "fullhouse", "royalflush",
+
+        // Dice terms
+        "dice", "roll", "craps", "shooter",
+
+        // Wheel/Spin terms
+        "wheel", "fortunewheel", "spinwheel", "luckywheel",
+        "wheeloffortune", "bigwheel", "moneywheel",
 
         // Bonus terms
-        "welcomebonus", "depositbonus", "nodeposit", "freechips",
-        "cashback", "reload", "highroller", "vipbonus",
+        "welcomebonus", "depositbonus", "nodeposit", "noodeposit",
+        "freechips", "freebet", "freebets", "freeplay",
+        "cashback", "reload", "reloadbonus",
+        "highroller", "vipbonus", "vipclub",
         "loyaltybonus", "referralbonus", "matchbonus",
+        "wageringrequirement", "rollover", "playthrough",
 
         // Actions
         "placebet", "betslip", "cashout", "withdraw",
+        "deposit", "signup", "register", "joinnow",
+        "playnow", "playreal", "realmoney",
 
         // Online gambling
         "onlinecasino", "onlinepoker", "onlineslots", "onlinegambling",
-        "mobilecasino", "mobilebet", "instantplay"
+        "mobilecasino", "mobilebet", "instantplay",
+        "flashcasino", "downloadcasino",
+
+        // Winning terms
+        "winner", "winners", "winning", "winbig",
+        "bigwin", "megawin", "hugewin", "epicwin",
+        "prize", "prizes", "reward", "rewards"
     )
 
     // ==================== POPÜLER SİTE İSİMLERİ ====================
     private val SITE_KEYWORDS = setOf(
-        // Uluslararası
+        // Uluslararası büyük siteler
         "1xbet", "bet365", "betway", "bwin", "unibet", "betfair",
         "williamhill", "ladbrokes", "coral", "paddypower",
         "pinnacle", "marathonbet", "22bet", "melbet", "mostbet",
         "betwinner", "parimatch", "dafabet", "mansion",
         "leovegas", "casumo", "mrgreen", "rizk", "videoslots",
+        "888casino", "888poker", "888sport", "pokerstars",
+        "partypoker", "fulltilt", "betfair", "betfred",
+        "skybet", "betvictor", "karamba", "netbet",
+        "betsson", "nordicbet", "betsafe", "comeon",
+        "casinoroom", "guts", "ikibu", "kaboo",
 
-        // Türkiye odaklı
+        // Türkiye odaklı siteler
         "bets10", "betboo", "superbahis", "superbetin", "mobilbahis",
         "tipobet", "youwin", "bahigo", "betvole", "betpas",
         "betpark", "betist", "betnano", "betlike", "betexper",
@@ -97,25 +173,42 @@ object BlockList {
         "perabet", "piabet", "pinbahis", "polobet", "princessbet",
         "privebet", "pusulabet", "restbet", "rivalo", "romabet",
         "sahabet", "santosbetting", "sekabet", "setrabet",
-        "showbahis", "simsekbet", "sultanbet", "superbahis",
-        "tempobet", "tipobet", "trbet", "truvabet", "tulipbet",
+        "showbahis", "simsekbet", "sultanbet", "supertotobet",
+        "tempobet", "trbet", "truvabet", "tulipbet",
         "ultrabet", "vegabet", "vevobahis", "vidobet", "wonodds",
-        "xbet", "yakinbahis", "zalbet", "zbahis"
+        "xbet", "yakinbahis", "zalbet", "zbahis",
+        "artemisbet", "betkanyon", "betonred", "betorspin",
+        "betroad", "betsoo", "bettilt", "discount",
+        "asyabahis", "bahisarena", "bahisbudur", "bahismarket",
+        "bahsegel", "betgram", "betlove", "betmarlo",
+        "betmatik", "betnis", "betpipo", "betticket",
+        "casinolevant", "casinoper", "casinovale", "favoribahis",
+        "fifabahis", "holiganbet", "justinbet", "kingbetting",
+        "kulisbet", "limanbet", "lordcasino", "luxbet",
+        "makrobet", "marsbahis", "megabahis", "merinobet",
+        "mobilbet", "musclebet", "ngsbets", "noktabet",
+        "orbetbet", "oslobet", "pasgol", "pokerklas",
+        "prizmabet", "retrobet", "rexbet", "rolletto",
+        "rotabet", "royalbet", "savoybetting", "selcuksports",
+        "seribet", "setbet", "simplecasino", "stakebet",
+        "starzbahis", "superbet", "surebetbet", "tarafbet",
+        "timebet", "tipwin", "trendbet", "turkbet",
+        "wonclub", "wsbets", "yabancidizi", "zingabet"
     )
 
     // ==================== BİLİNEN DOMAİNLER ====================
     val BLOCKED_DOMAINS = setOf(
         // Majör siteler
-        "1xbet.com", "1xbet.mobi", "1xbettr.com",
-        "bet365.com", "bet365.es", "bet365.it",
-        "betway.com", "betway.es",
-        "bwin.com", "bwin.es",
-        "unibet.com", "unibet.fr",
+        "1xbet.com", "1xbet.mobi", "1xbettr.com", "1xbet-turkey.com",
+        "bet365.com", "bet365.es", "bet365.it", "bet365.de",
+        "betway.com", "betway.es", "betway.de",
+        "bwin.com", "bwin.es", "bwin.de",
+        "unibet.com", "unibet.fr", "unibet.de",
         "betfair.com", "betfair.es",
         "williamhill.com", "williamhill.es",
         "paddypower.com", "ladbrokes.com",
         "pinnacle.com", "pinnaclesports.com",
-        "22bet.com", "22bet.ng",
+        "22bet.com", "22bet.ng", "22bet.de",
         "melbet.com", "melbet.org",
         "mostbet.com", "mostbet.az",
 
@@ -140,22 +233,25 @@ object BlockList {
         "perabet.com", "perabetgiris.com",
         "restbet.com", "restbetgiris.com",
         "piabet.com", "piabetgiris.com",
-        "pinbahis.com", "pinbahisgiris.com"
+        "pinbahis.com", "pinbahisgiris.com",
+        "artemisbet.com", "artemisbet111.com"
     )
 
     // ==================== LEET SPEAK HARİTASI ====================
     private val LEET_MAP = mapOf(
-        'a' to listOf('4', '@', 'α'),
-        'e' to listOf('3', '€', 'ε'),
-        'i' to listOf('1', '!', 'ı', 'İ'),
-        'o' to listOf('0', 'ø', 'ο'),
-        's' to listOf('5', '$', 'ş', 'Ş'),
-        't' to listOf('7', '+'),
-        'b' to listOf('8', 'ß'),
-        'g' to listOf('9', 'ğ', 'Ğ'),
-        'l' to listOf('1', '|'),
-        'c' to listOf('ç', 'Ç', '('),
-        'u' to listOf('ü', 'Ü', 'µ')
+        'a' to listOf('4', '@', 'α', 'λ'),
+        'e' to listOf('3', '€', 'ε', '£'),
+        'i' to listOf('1', '!', 'ı', 'İ', '|'),
+        'o' to listOf('0', 'ø', 'ο', 'θ'),
+        's' to listOf('5', '$', 'ş', 'Ş', '§'),
+        't' to listOf('7', '+', '†'),
+        'b' to listOf('8', 'ß', '6'),
+        'g' to listOf('9', 'ğ', 'Ğ', '6'),
+        'l' to listOf('1', '|', '7'),
+        'c' to listOf('ç', 'Ç', '(', '<'),
+        'u' to listOf('ü', 'Ü', 'µ', 'v'),
+        'k' to listOf('x', '|<'),
+        'r' to listOf('2', '®')
     )
 
     // ==================== TÜRKÇE KARAKTER DÖNÜŞÜMÜ ====================
@@ -180,18 +276,24 @@ object BlockList {
         Regex("r[u][l1][e3][t7]", RegexOption.IGNORE_CASE),
         Regex("[i1!]dd[i1!][a4@]", RegexOption.IGNORE_CASE),
         Regex("j[a4@]ckp[o0][t7]", RegexOption.IGNORE_CASE),
+        Regex("j[o0]k[e3]r", RegexOption.IGNORE_CASE),
+        Regex("w[i1!]ld", RegexOption.IGNORE_CASE),
+        Regex("sc[a4@]tt[e3]r", RegexOption.IGNORE_CASE),
 
         // URL pattern'ları
         Regex(".*bet[0-9]+.*", RegexOption.IGNORE_CASE),
         Regex(".*casino[0-9]+.*", RegexOption.IGNORE_CASE),
         Regex(".*slot[0-9]+.*", RegexOption.IGNORE_CASE),
         Regex(".*bahis[0-9]+.*", RegexOption.IGNORE_CASE),
+        Regex(".*poker[0-9]+.*", RegexOption.IGNORE_CASE),
 
         // Giriş/Mirror siteleri
-        Regex(".*giris[0-9]*\\.(com|net|org).*", RegexOption.IGNORE_CASE),
+        Regex(".*giris[0-9]*\\.(com|net|org|xyz|site).*", RegexOption.IGNORE_CASE),
         Regex(".*yenigiris.*", RegexOption.IGNORE_CASE),
         Regex(".*guncelgiris.*", RegexOption.IGNORE_CASE),
-        Regex(".*mobilgiris.*", RegexOption.IGNORE_CASE)
+        Regex(".*mobilgiris.*", RegexOption.IGNORE_CASE),
+        Regex(".*girisyap.*", RegexOption.IGNORE_CASE),
+        Regex(".*linkgiris.*", RegexOption.IGNORE_CASE)
     )
 
     // Tüm kelimeler birleşik
@@ -237,7 +339,6 @@ object BlockList {
             .removePrefix("http://")
             .removePrefix("https://")
 
-        // Tire ve alt çizgileri kaldır (kelime kontrolü için)
         return normalized
     }
 
