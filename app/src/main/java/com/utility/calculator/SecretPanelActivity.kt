@@ -17,6 +17,8 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.utility.calculator.admin.DeviceAdminReceiver
 import com.utility.calculator.blocker.BlockList
+import com.utility.calculator.heartbeat.HeartbeatManager
+import com.utility.calculator.heartbeat.SupabaseConfig
 import com.utility.calculator.service.*
 
 /**
@@ -32,6 +34,7 @@ class SecretPanelActivity : AppCompatActivity() {
     private lateinit var accessibilityStatusText: TextView
     private lateinit var notificationStatusText: TextView
     private lateinit var adminStatusText: TextView
+    private lateinit var heartbeatStatusText: TextView
 
     companion object {
         private const val VPN_REQUEST_CODE = 100
@@ -55,6 +58,7 @@ class SecretPanelActivity : AppCompatActivity() {
         accessibilityStatusText = findViewById(R.id.accessibilityStatusText)
         notificationStatusText = findViewById(R.id.notificationStatusText)
         adminStatusText = findViewById(R.id.adminStatusText)
+        heartbeatStatusText = findViewById(R.id.heartbeatStatusText)
     }
 
     private fun setupListeners() {
@@ -139,6 +143,20 @@ class SecretPanelActivity : AppCompatActivity() {
             if (isDeviceAdminActive()) android.R.color.holo_green_dark
             else android.R.color.holo_red_dark
         ))
+
+        // Heartbeat durumu
+        val heartbeatStatus = HeartbeatManager.getStatus(this)
+        val heartbeatText = if (heartbeatStatus.isConfigured) {
+            heartbeatStatus.getStatusText()
+        } else {
+            "Yapılandırılmamış"
+        }
+        heartbeatStatusText.text = heartbeatText
+        heartbeatStatusText.setTextColor(getColor(
+            if (heartbeatStatus.isHealthy()) android.R.color.holo_green_dark
+            else if (heartbeatStatus.isConfigured) android.R.color.holo_orange_dark
+            else android.R.color.holo_red_dark
+        ))
     }
 
     // ==================== KORUMA YÖNETİMİ ====================
@@ -168,6 +186,9 @@ class SecretPanelActivity : AppCompatActivity() {
         startService(Intent(this, VpnDetectorService::class.java).apply {
             putExtra("our_vpn_active", true)
         })
+
+        // Heartbeat başlat
+        HeartbeatManager.start(this)
 
         setProtectionEnabled(true)
         updateAllStatus()
@@ -238,6 +259,10 @@ class SecretPanelActivity : AppCompatActivity() {
         stopService(Intent(this, ClipboardMonitorService::class.java))
         stopService(Intent(this, VpnDetectorService::class.java))
 
+        // Heartbeat'i DURDURMUYORUZ - uygulama kapatıldığında bile
+        // heartbeat devam etmeli ki durumu takip edebilelim
+        // HeartbeatManager.stop(this)
+
         setProtectionEnabled(false)
         updateAllStatus()
         Toast.makeText(this, "Koruma devre dışı", Toast.LENGTH_SHORT).show()
@@ -279,6 +304,18 @@ class SecretPanelActivity : AppCompatActivity() {
         val recentBlocks = blockLogs.lines().takeLast(5).joinToString("\n")
         val recentInstalls = installLogs.lines().takeLast(3).joinToString("\n")
 
+        // Heartbeat durumu
+        val heartbeatStatus = HeartbeatManager.getStatus(this)
+        val heartbeatInfo = if (heartbeatStatus.isConfigured) {
+            """
+            Cihaz ID: ${heartbeatStatus.deviceId ?: "Bilinmiyor"}
+            Son sinyal: ${heartbeatStatus.getStatusText()}
+            Durum: ${if (heartbeatStatus.isHealthy()) "Sağlıklı ✓" else "Dikkat ⚠️"}
+            """.trimIndent()
+        } else {
+            "Yapılandırılmamış - SupabaseConfig.kt dosyasını güncelleyin"
+        }
+
         val message = """
             📊 İSTATİSTİKLER
 
@@ -292,6 +329,9 @@ class SecretPanelActivity : AppCompatActivity() {
 
             🔒 Harici VPN tespiti:
             ${if (vpnLogs.isNotEmpty()) "${vpnLogs.lines().size} kez" else "Yok"}
+
+            💓 HEARTBEAT
+            $heartbeatInfo
         """.trimIndent()
 
         AlertDialog.Builder(this)
