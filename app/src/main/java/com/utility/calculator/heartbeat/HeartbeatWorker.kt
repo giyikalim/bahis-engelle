@@ -95,22 +95,22 @@ class HeartbeatWorker(
         val prefs = context.getSharedPreferences("calc_prefs", Context.MODE_PRIVATE)
 
         // Önce kayıtlı ID'yi kontrol et
-        var deviceId = prefs.getString("device_id", null)
-
-        if (deviceId == null) {
-            // Yeni ID oluştur
-            deviceId = try {
-                Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
-                    ?: generateRandomId()
-            } catch (e: Exception) {
-                generateRandomId()
-            }
-
-            // Kaydet
-            prefs.edit().putString("device_id", deviceId).apply()
+        val savedId = prefs.getString("device_id", null)
+        if (savedId != null) {
+            return savedId
         }
 
-        return deviceId
+        // Yeni ID oluştur
+        val newId = try {
+            Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
+                ?: generateRandomId()
+        } catch (e: Exception) {
+            generateRandomId()
+        }
+
+        // Kaydet
+        prefs.edit().putString("device_id", newId).apply()
+        return newId
     }
 
     private fun generateRandomId(): String {
