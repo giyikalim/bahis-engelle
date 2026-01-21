@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Masum isim - Uygulamanın gerçek amacı belli olmasın -->
+    <string name="app_name">Hesap Makinesi</string>
+
+    <!-- Accessibility Service açıklaması (masum görünüm) -->
+    <string name="accessibility_description">Bu hizmet, hesap makinesi kısayollarının düzgün çalışmasını sağlar.</string>
+</resources>
