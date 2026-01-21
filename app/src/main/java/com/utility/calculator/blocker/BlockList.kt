@@ -250,7 +250,7 @@ object BlockList {
         'l' to listOf('1', '|', '7'),
         'c' to listOf('ç', 'Ç', '(', '<'),
         'u' to listOf('ü', 'Ü', 'µ', 'v'),
-        'k' to listOf('x', '|<'),
+        'k' to listOf('x', 'κ'),
         'r' to listOf('2', '®')
     )
 
