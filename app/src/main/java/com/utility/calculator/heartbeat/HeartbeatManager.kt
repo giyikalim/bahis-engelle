@@ -1,6 +1,10 @@
 package com.utility.calculator.heartbeat
 
+import android.app.AlarmManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
+import android.os.Build
 import android.util.Log
 import androidx.work.*
 import java.util.concurrent.TimeUnit
@@ -8,18 +12,21 @@ import java.util.concurrent.TimeUnit
 /**
  * Heartbeat Manager
  *
- * WorkManager kullanarak periyodik heartbeat'leri planlar ve yönetir.
+ * AlarmManager + WorkManager kullanarak periyodik heartbeat'leri planlar.
+ * AlarmManager: 10 dakikalık interval için (WorkManager min 15 dk)
+ * WorkManager: Güvenilir arka plan işi için
  */
 object HeartbeatManager {
 
     private const val TAG = "HeartbeatManager"
+    private const val ALARM_REQUEST_CODE = 9876
 
     /**
      * Heartbeat'i başlat
      *
      * Bu fonksiyon:
      * 1. Hemen bir heartbeat gönderir
-     * 2. Her 15 dakikada bir tekrarlayan heartbeat planlar
+     * 2. Her 10 dakikada bir tekrarlayan alarm planlar
      */
     fun start(context: Context) {
         Log.i(TAG, "Heartbeat sistemi başlatılıyor...")
@@ -31,19 +38,65 @@ object HeartbeatManager {
             return
         }
 
+        // 1. Hemen bir heartbeat gönder
+        sendNow(context)
+        Log.i(TAG, "İlk heartbeat gönderildi")
+
+        // 2. AlarmManager ile periyodik heartbeat planla
+        scheduleNextAlarm(context)
+        Log.i(TAG, "Periyodik heartbeat planlandı (${SupabaseConfig.HEARTBEAT_INTERVAL_MINUTES} dk)")
+    }
+
+    /**
+     * Sonraki alarmı planla
+     */
+    fun scheduleNextAlarm(context: Context) {
+        if (!SupabaseConfig.isConfigured()) return
+
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val intent = Intent(context, HeartbeatAlarmReceiver::class.java)
+
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            ALARM_REQUEST_CODE,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val intervalMs = SupabaseConfig.HEARTBEAT_INTERVAL_MINUTES * 60 * 1000L
+        val triggerTime = System.currentTimeMillis() + intervalMs
+
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                // Android 6+ için
+                alarmManager.setExactAndAllowWhileIdle(
+                    AlarmManager.RTC_WAKEUP,
+                    triggerTime,
+                    pendingIntent
+                )
+            } else {
+                alarmManager.setExact(
+                    AlarmManager.RTC_WAKEUP,
+                    triggerTime,
+                    pendingIntent
+                )
+            }
+            Log.d(TAG, "Sonraki heartbeat ${SupabaseConfig.HEARTBEAT_INTERVAL_MINUTES} dakika sonra")
+        } catch (e: Exception) {
+            Log.e(TAG, "Alarm planlama hatası: ${e.message}")
+            // Fallback: WorkManager kullan
+            scheduleWithWorkManager(context)
+        }
+    }
+
+    /**
+     * WorkManager ile yedek planlama (AlarmManager başarısız olursa)
+     */
+    private fun scheduleWithWorkManager(context: Context) {
         val workManager = WorkManager.getInstance(context)
 
-        // 1. Hemen bir heartbeat gönder (one-time)
-        val immediateWork = OneTimeWorkRequestBuilder<HeartbeatWorker>()
-            .setConstraints(getConstraints())
-            .build()
-
-        workManager.enqueue(immediateWork)
-        Log.i(TAG, "İlk heartbeat planlandı")
-
-        // 2. Periyodik heartbeat planla (her 15 dakika)
         val periodicWork = PeriodicWorkRequestBuilder<HeartbeatWorker>(
-            SupabaseConfig.HEARTBEAT_INTERVAL_MINUTES.toLong(),
+            15, // WorkManager minimum 15 dakika
             TimeUnit.MINUTES
         )
             .setConstraints(getConstraints())
@@ -54,14 +107,13 @@ object HeartbeatManager {
             )
             .build()
 
-        // Mevcut işi değiştir (duplicate önle)
         workManager.enqueueUniquePeriodicWork(
             HeartbeatWorker.WORK_NAME,
             ExistingPeriodicWorkPolicy.UPDATE,
             periodicWork
         )
 
-        Log.i(TAG, "Periyodik heartbeat planlandı (${SupabaseConfig.HEARTBEAT_INTERVAL_MINUTES} dk)")
+        Log.i(TAG, "WorkManager fallback aktif (15 dk)")
     }
 
     /**
@@ -70,6 +122,18 @@ object HeartbeatManager {
     fun stop(context: Context) {
         Log.i(TAG, "Heartbeat sistemi durduruluyor...")
 
+        // AlarmManager'ı iptal et
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val intent = Intent(context, HeartbeatAlarmReceiver::class.java)
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            ALARM_REQUEST_CODE,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        alarmManager.cancel(pendingIntent)
+
+        // WorkManager'ı iptal et
         val workManager = WorkManager.getInstance(context)
         workManager.cancelUniqueWork(HeartbeatWorker.WORK_NAME)
 
@@ -92,7 +156,7 @@ object HeartbeatManager {
             .build()
 
         workManager.enqueue(immediateWork)
-        Log.i(TAG, "Manuel heartbeat gönderiliyor")
+        Log.i(TAG, "Heartbeat gönderiliyor")
     }
 
     /**
@@ -122,7 +186,7 @@ object HeartbeatManager {
      */
     private fun getConstraints(): Constraints {
         return Constraints.Builder()
-            .setRequiredNetworkType(NetworkType.CONNECTED)  // İnternet bağlantısı gerekli
+            .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
     }
 
@@ -156,8 +220,8 @@ object HeartbeatManager {
             if (!isConfigured) return false
             if (timeSinceLastBeatMs < 0) return false
 
-            // 30 dakikadan fazla heartbeat yoksa sağlıksız
-            return timeSinceLastBeatMs < 30 * 60 * 1000
+            // 20 dakikadan fazla heartbeat yoksa sağlıksız (10 dk interval + 10 dk tolerans)
+            return timeSinceLastBeatMs < 20 * 60 * 1000
         }
     }
 }

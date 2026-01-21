@@ -42,8 +42,8 @@ object SupabaseConfig {
     // Heartbeat tablosu adı
     const val TABLE_NAME = "heartbeats"
 
-    // Heartbeat aralığı (dakika) - WorkManager minimum 15 dk destekler
-    const val HEARTBEAT_INTERVAL_MINUTES = 15
+    // Heartbeat aralığı (dakika)
+    const val HEARTBEAT_INTERVAL_MINUTES = 10
 
     /**
      * API endpoint'i oluştur
