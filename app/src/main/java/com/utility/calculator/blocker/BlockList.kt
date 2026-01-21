@@ -46,8 +46,8 @@ object BlockList {
 
     // ==================== İNGİLİZCE KELİMELER ====================
     private val ENGLISH_KEYWORDS = setOf(
-        // Core
-        "gambling", "gamble", "betting", "wager", "wagering",
+        // Core - TEK KELİMELER (önemli!)
+        "bet", "gamble", "gambling", "betting", "wager", "wagering",
         "casino", "poker", "blackjack", "roulette", "baccarat",
         "slots", "slot", "jackpot", "megaways", "freespins",
 
