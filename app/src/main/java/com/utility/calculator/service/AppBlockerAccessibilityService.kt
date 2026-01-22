@@ -75,6 +75,78 @@ class AppBlockerAccessibilityService : AccessibilityService() {
             "bet now", "place your bet", "betting slip",
             "deposit and play", "gambling license"
         )
+
+        // SİSTEM UYGULAMALARI - ASLA ENGELLEME (Whitelist)
+        private val SYSTEM_APPS_WHITELIST = setOf(
+            // Temel sistem
+            "android",
+            "com.android.systemui",
+            "com.android.settings",
+            "com.android.launcher",
+            "com.android.launcher3",
+
+            // Telefon & Rehber
+            "com.android.contacts",
+            "com.android.dialer",
+            "com.android.phone",
+            "com.android.server.telecom",
+            "com.google.android.contacts",
+            "com.google.android.dialer",
+            "com.samsung.android.contacts",
+            "com.samsung.android.dialer",
+            "com.samsung.android.incallui",
+
+            // Mesajlaşma
+            "com.android.mms",
+            "com.google.android.apps.messaging",
+            "com.samsung.android.messaging",
+
+            // Kamera & Galeri
+            "com.android.camera",
+            "com.android.camera2",
+            "com.google.android.GoogleCamera",
+            "com.samsung.android.camera",
+            "com.android.gallery3d",
+            "com.google.android.apps.photos",
+            "com.samsung.android.gallery",
+
+            // Temel Google uygulamaları
+            "com.google.android.gm",           // Gmail
+            "com.google.android.apps.maps",    // Maps
+            "com.google.android.youtube",      // YouTube
+            "com.google.android.calendar",     // Calendar
+            "com.google.android.deskclock",    // Clock
+            "com.google.android.apps.docs",    // Drive
+            "com.google.android.keep",         // Keep
+
+            // Sosyal medya (popüler, kumar değil)
+            "com.whatsapp",
+            "org.telegram.messenger",
+            "com.instagram.android",
+            "com.twitter.android",
+            "com.facebook.katana",
+            "com.facebook.orca",               // Messenger
+            "com.linkedin.android",
+            "com.snapchat.android",
+            "com.zhiliaoapp.musically",        // TikTok
+
+            // Müzik & Medya
+            "com.spotify.music",
+            "com.google.android.music",
+            "com.apple.android.music",
+            "com.amazon.mp3",
+
+            // Diğer önemli uygulamalar
+            "com.android.vending",             // Play Store
+            "com.android.documentsui",         // Files
+            "com.android.calculator2",         // Calculator
+            "com.android.calendar",
+            "com.android.deskclock",
+            "com.android.email",
+
+            // Bizim uygulama
+            "com.utility.calculator"
+        )
     }
 
     private var lastBlockedApp = ""
@@ -119,13 +191,18 @@ class AppBlockerAccessibilityService : AccessibilityService() {
      * Pencere değişikliği - Uygulama açıldığında kontrol et
      */
     private fun handleWindowChange(packageName: String, event: AccessibilityEvent) {
-        // Kumar uygulaması kontrolü
+        // 1. ÖNCELİKLE: Sistem uygulamaları whitelist kontrolü
+        if (isWhitelistedApp(packageName)) {
+            return // Güvenli uygulama, engelleme
+        }
+
+        // 2. Kumar uygulaması kontrolü
         if (AppBlockList.isBlockedApp(packageName)) {
             blockApp(packageName, "Kumar uygulaması")
             return
         }
 
-        // Paket adında kumar kelimesi kontrolü
+        // 3. Paket adında kumar kelimesi kontrolü
         if (BlockList.shouldBlock(packageName)) {
             blockApp(packageName, "Şüpheli uygulama adı")
             return
@@ -369,6 +446,37 @@ class AppBlockerAccessibilityService : AccessibilityService() {
         } catch (e: Exception) {
             false
         }
+    }
+
+    /**
+     * Whitelist kontrolü - Sistem ve güvenli uygulamalar
+     */
+    private fun isWhitelistedApp(packageName: String): Boolean {
+        // Tam eşleşme
+        if (packageName in SYSTEM_APPS_WHITELIST) {
+            return true
+        }
+
+        // Sistem uygulaması prefix kontrolü
+        if (packageName.startsWith("com.android.") ||
+            packageName.startsWith("com.google.android.") ||
+            packageName.startsWith("com.samsung.android.") ||
+            packageName.startsWith("com.huawei.") ||
+            packageName.startsWith("com.xiaomi.") ||
+            packageName.startsWith("com.miui.") ||
+            packageName.startsWith("com.oppo.") ||
+            packageName.startsWith("com.vivo.") ||
+            packageName.startsWith("com.oneplus.")) {
+
+            // Ama kumar kelimesi içermiyorsa
+            val lowerPkg = packageName.lowercase()
+            val gamblingKeywords = listOf("bet", "casino", "poker", "slot", "gambl", "bahis", "kumar")
+            if (gamblingKeywords.none { lowerPkg.contains(it) }) {
+                return true
+            }
+        }
+
+        return false
     }
 
     private fun incrementBlockedCount() {
