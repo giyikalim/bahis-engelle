@@ -205,6 +205,13 @@ class HeartbeatWorker(
 
         return JSONObject().apply {
             put("device_id", getDeviceId())
+
+            // User ID (kayıtlı ise)
+            val userId = prefs.getString("user_id", null)
+            if (userId != null) {
+                put("user_id", userId)
+            }
+
             put("app_version", getAppVersion())
             put("protection_enabled", prefs.getBoolean("protection_enabled", false))
             put("vpn_active", isVpnActive())

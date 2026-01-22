@@ -52,6 +52,12 @@
             android:exported="false"
             android:theme="@style/Theme.Calculator" />
 
+        <!-- Kullanıcı Kayıt Ekranı -->
+        <activity
+            android:name=".RegistrationActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Calculator" />
+
         <!-- ==================== SERVICES ==================== -->
 
         <!-- VPN Servisi - DNS Filtreleme -->

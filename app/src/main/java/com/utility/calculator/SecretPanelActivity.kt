@@ -17,6 +17,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.utility.calculator.admin.DeviceAdminReceiver
 import com.utility.calculator.blocker.BlockList
+import com.utility.calculator.data.UserRepository
 import com.utility.calculator.heartbeat.HeartbeatManager
 import com.utility.calculator.heartbeat.SupabaseConfig
 import com.utility.calculator.service.*
@@ -36,14 +37,19 @@ class SecretPanelActivity : AppCompatActivity() {
     private lateinit var adminStatusText: TextView
     private lateinit var heartbeatStatusText: TextView
 
+    private lateinit var userRepository: UserRepository
+
     companion object {
         private const val VPN_REQUEST_CODE = 100
         private const val ADMIN_REQUEST_CODE = 101
+        private const val REGISTRATION_REQUEST_CODE = 102
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_secret_panel)
+
+        userRepository = UserRepository(this)
 
         initViews()
         setupListeners()
@@ -162,7 +168,16 @@ class SecretPanelActivity : AppCompatActivity() {
     // ==================== KORUMA YÖNETİMİ ====================
 
     private fun enableAllProtection() {
-        // 1. VPN başlat
+        // Önce kullanıcı kayıtlı mı kontrol et
+        if (!userRepository.isUserRegistered()) {
+            // Kayıtlı değil, kayıt ekranına yönlendir
+            protectionSwitch.isChecked = false
+            val intent = Intent(this, RegistrationActivity::class.java)
+            startActivityForResult(intent, REGISTRATION_REQUEST_CODE)
+            return
+        }
+
+        // Kayıtlı, korumayı başlat
         enableVpn()
     }
 
@@ -430,6 +445,17 @@ class SecretPanelActivity : AppCompatActivity() {
             }
             ADMIN_REQUEST_CODE -> {
                 updateAllStatus()
+            }
+            REGISTRATION_REQUEST_CODE -> {
+                if (resultCode == RegistrationActivity.RESULT_REGISTERED) {
+                    // Kayıt başarılı, korumayı başlat
+                    Toast.makeText(this, "Kayıt tamamlandı!", Toast.LENGTH_SHORT).show()
+                    protectionSwitch.isChecked = true
+                    enableVpn()
+                } else {
+                    // Kayıt iptal edildi
+                    protectionSwitch.isChecked = false
+                }
             }
         }
     }
